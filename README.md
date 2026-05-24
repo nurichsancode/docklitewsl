@@ -65,3 +65,7 @@ each line to the UI.
 - Windows-only — the app depends on WSL.
 - The **Exec** tab runs each command in a fresh shell, so the working directory
   and shell variables do not persist between runs.
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
