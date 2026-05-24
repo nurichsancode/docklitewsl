@@ -1,0 +1,44 @@
+# ====================================================================
+# DockLite WSL Gitignore - Premium Exclusion Guide
+# ====================================================================
+
+# --- Rust & Cargo ---
+# Ignore the entire target compilation directory (debug, release, binaries, NSIS setup)
+/target/
+target/
+Cargo.lock.log
+
+# --- Local User Configurations & Distro Settings ---
+# Ignore local state files so individual distro preferences are not pushed to GitHub
+**/docklite_wsl_config.json
+**/wsl_dashboard_config.json
+**/config.json
+
+# --- Operating System Files ---
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- IDEs & Editors ---
+# VS Code
+.vscode/
+# IntelliJ / JetBrains CLion
+.idea/
+*.iml
+# Vim / Text Editors
+*.swp
+*~
+
+# --- Local Environments & Logs ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.log

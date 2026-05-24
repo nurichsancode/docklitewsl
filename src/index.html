@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DockLite WSL</title>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Style Sheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="overlay">
+    <div class="spinner-container">
+      <div class="spinner"></div>
+      <p id="loading-text">Connecting to system...</p>
+    </div>
+  </div>
+
+  <!-- 1. WSL Distro Selection Screen (Setup) -->
+  <div id="setup-screen" class="setup-container hidden">
+    <div class="setup-card">
+      <div class="setup-header">
+        <div class="logo-icon-container">
+          <i data-lucide="layers" class="logo-icon animate-pulse-glow"></i>
+        </div>
+        <h1>DockLite WSL</h1>
+        <p>Please select an installed WSL environment to start</p>
+      </div>
+      
+      <div class="setup-body">
+        <div id="wsl-distro-list" class="distro-list">
+          <!-- Dynamic via JS -->
+          <div class="no-distros">
+            <i data-lucide="alert-triangle"></i>
+            <p>No WSL distros detected. Make sure WSL 2 is installed.</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="setup-footer">
+        <button id="btn-connect-wsl" class="btn btn-primary" disabled>
+          <i data-lucide="play"></i> Connect Environment
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Main Dashboard Layout -->
+  <div id="main-layout" class="app-layout hidden">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="app-sidebar">
+      <!-- Floating Minimize Toggle Button -->
+      <button id="btn-toggle-sidebar" class="btn-toggle-sidebar" title="Minimize Sidebar">
+        <i data-lucide="chevron-left"></i>
+      </button>
+
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <i data-lucide="terminal" class="cyan-glow"></i>
+        </div>
+        <div class="brand-info">
+          <h2>DockLite WSL</h2>
+          <span class="badge badge-success" id="active-distro-badge">Ubuntu-24.04</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-menu">
+        <a href="#" class="menu-item active" data-target="tab-dashboard" id="menu-dashboard">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="#" class="menu-item" data-target="tab-containers" id="menu-containers">
+          <i data-lucide="box"></i>
+          <span>Containers</span>
+          <span class="menu-badge" id="running-containers-count">0</span>
+        </a>
+        <a href="#" class="menu-item" data-target="tab-images" id="menu-images">
+          <i data-lucide="copy"></i>
+          <span>Images</span>
+          <span class="menu-badge" id="images-count">0</span>
+        </a>
+        <a href="#" class="menu-item" data-target="tab-deploy" id="menu-deploy">
+          <i data-lucide="plus-circle"></i>
+          <span>Deploy Container</span>
+        </a>
+        
+        <!-- Open Container Detail Tabs Section -->
+        <div id="dynamic-log-menu-section" class="dynamic-log-menu-section hidden">
+          <div class="menu-divider"></div>
+          <span class="menu-header">Open Containers</span>
+          <div id="dynamic-log-tabs-list"></div>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="btn-switch-distro" class="btn btn-outline btn-sm w-full" title="Switch WSL Distro">
+          <i data-lucide="refresh-cw"></i> <span>Switch WSL Distro</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Bar Header -->
+      <header class="top-bar">
+        <div class="top-bar-title">
+          <h1 id="page-title">Dashboard Overview</h1>
+        </div>
+        <div class="top-bar-actions">
+          <div class="status-indicator">
+            <span class="status-dot pulsing"></span>
+            <span class="status-text" id="docker-status-text">Docker Connected</span>
+          </div>
+          <button id="btn-refresh-all" class="btn btn-icon btn-outline" title="Refresh Data">
+            <i data-lucide="rotate-cw"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- View Containers -->
+      <div class="view-container">
+
+        <!-- TAB 1: DASHBOARD -->
+        <section id="tab-dashboard" class="tab-content">
+          <!-- Stats Grid -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon-wrapper stat-cyan">
+                <i data-lucide="box"></i>
+              </div>
+              <div class="stat-details">
+                <h3>Total Containers</h3>
+                <p class="stat-val" id="stat-total-containers">0</p>
+                <span class="stat-sub" id="stat-running-containers">0 Running</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon-wrapper stat-indigo">
+                <i data-lucide="copy"></i>
+              </div>
+              <div class="stat-details">
+                <h3>Docker Images</h3>
+                <p class="stat-val" id="stat-total-images">0</p>
+                <span class="stat-sub">Stored in WSL</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon-wrapper stat-emerald">
+                <i data-lucide="cpu"></i>
+              </div>
+              <div class="stat-details">
+                <h3>Average CPU</h3>
+                <p class="stat-val" id="stat-avg-cpu">0.0%</p>
+                <span class="stat-sub">From active containers</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon-wrapper stat-violet">
+                <i data-lucide="hard-drive"></i>
+              </div>
+              <div class="stat-details">
+                <h3>Container Memory</h3>
+                <p class="stat-val" id="stat-total-mem">0 MB</p>
+                <span class="stat-sub">Total RAM usage</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts & Quick View -->
+          <div class="dashboard-grid">
+            <!-- Resource Usage Card -->
+            <div class="card glass-card col-span-2">
+              <div class="card-header">
+                <h2>Real-Time Container Utilization</h2>
+                <span class="badge badge-indigo">Live Poll</span>
+              </div>
+              <div class="card-body">
+                <div class="stats-list" id="live-resource-list">
+                  <div class="no-data">
+                    <i data-lucide="activity"></i>
+                    <p>No active containers to monitor.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Action Card -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <h2>WSL Distro Status</h2>
+              </div>
+              <div class="card-body distro-info-body">
+                <div class="distro-info-item">
+                  <span class="label">Distro Name:</span>
+                  <span class="value font-semibold" id="info-distro-name">-</span>
+                </div>
+                <div class="distro-info-item">
+                  <span class="label">WSL Status:</span>
+                  <span class="value font-semibold text-emerald" id="info-distro-status">-</span>
+                </div>
+                <div class="distro-info-item">
+                  <span class="label">WSL Version:</span>
+                  <span class="value" id="info-distro-version">-</span>
+                </div>
+                <div class="distro-info-item">
+                  <span class="label">WSL IP Address:</span>
+                  <span class="value code-font" id="info-distro-ip">127.0.0.1</span>
+                </div>
+                <div class="distro-info-divider"></div>
+                <div class="quick-actions-container">
+                  <h3>Quick Actions</h3>
+                  <button id="btn-quick-run" class="btn btn-outline btn-sm w-full mb-2 justify-center">
+                    <i data-lucide="play-circle"></i> Deploy New Container
+                  </button>
+                  <button id="btn-prune" class="btn btn-danger-outline btn-sm w-full justify-center">
+                    <i data-lucide="trash-2"></i> Prune Docker Cache
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: CONTAINERS LIST -->
+        <section id="tab-containers" class="tab-content hidden">
+          <div class="card glass-card">
+            <div class="card-header search-header">
+              <div class="search-wrapper">
+                <i data-lucide="search"></i>
+                <input type="text" id="search-containers" placeholder="Search containers...">
+              </div>
+              <div class="filter-wrapper">
+                <button class="btn btn-sm btn-outline filter-btn active" data-filter="all">All</button>
+                <button class="btn btn-sm btn-outline filter-btn" data-filter="running">Running</button>
+                <button class="btn btn-sm btn-outline filter-btn" data-filter="exited">Stopped</button>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Container Name</th>
+                      <th>Image</th>
+                      <th>Status</th>
+                      <th>Ports</th>
+                      <th>Created At</th>
+                      <th class="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="containers-table-body">
+                    <!-- Dynamic via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: IMAGES LIST -->
+        <section id="tab-images" class="tab-content hidden">
+          <div class="card glass-card">
+            <div class="card-header search-header">
+              <div class="search-wrapper">
+                <i data-lucide="search"></i>
+                <input type="text" id="search-images" placeholder="Search images...">
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Repository</th>
+                      <th>Tag</th>
+                      <th>Image ID</th>
+                      <th>Size</th>
+                      <th>Created Since</th>
+                      <th class="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="images-table-body">
+                    <!-- Dynamic via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: DEPLOY CONTAINER FORM -->
+        <section id="tab-deploy" class="tab-content hidden">
+          <div class="deploy-grid">
+            <div class="card glass-card col-span-2">
+              <div class="card-header">
+                <h2>Deploy New Container</h2>
+                <p class="subtitle text-sm text-gray-400">Run an image as a container with custom configurations</p>
+              </div>
+              <div class="card-body">
+                <form id="deploy-form" class="custom-form">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="deploy-image">Docker Image <span class="required">*</span></label>
+                      <input type="text" id="deploy-image" placeholder="E.g., nginx:alpine or redis:latest" required>
+                    </div>
+                    <div class="form-group">
+                      <label for="deploy-name">Container Name (Optional)</label>
+                      <input type="text" id="deploy-name" placeholder="E.g., web-nginx">
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="deploy-ports">Port Mapping (Optional)</label>
+                    <input type="text" id="deploy-ports" placeholder="E.g., 8080:80 (HostPort:ContainerPort)">
+                  </div>
+
+                  <div class="form-group">
+                    <label>Environment Variables (Optional)</label>
+                    <div id="env-vars-container" class="env-container">
+                      <div class="env-row">
+                        <input type="text" placeholder="KEY=VALUE" class="env-input">
+                        <button type="button" class="btn btn-icon btn-danger btn-remove-env" disabled>
+                          <i data-lucide="minus"></i>
+                        </button>
+                      </div>
+                    </div>
+                    <button type="button" id="btn-add-env" class="btn btn-sm btn-outline mt-2">
+                      <i data-lucide="plus"></i> Add Variable
+                    </button>
+                  </div>
+
+                  <div class="form-actions">
+                    <button type="reset" class="btn btn-outline">Reset Form</button>
+                    <button type="submit" class="btn btn-primary">
+                      <i data-lucide="play-circle"></i> Deploy Container
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Deploy Info Sidebar -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <h2>Usage Guide</h2>
+              </div>
+              <div class="card-body guide-body">
+                <ul class="guide-list">
+                  <li>
+                    <i data-lucide="help-circle" class="text-cyan"></i>
+                    <div>
+                      <h4>Docker Image</h4>
+                      <p>Use a specific tag for stability, e.g. <code>redis:7-alpine</code>. Defaults to <code>latest</code> if tag is omitted.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <i data-lucide="help-circle" class="text-indigo"></i>
+                    <div>
+                      <h4>Port Mapping</h4>
+                      <p>Format is <code>[HostPort]:[ContainerPort]</code>. E.g. <code>8080:80</code> maps port 8080 on Windows to port 80 inside the container.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <i data-lucide="help-circle" class="text-emerald"></i>
+                    <div>
+                      <h4>Environment Variables</h4>
+                      <p>Used for runtime configurations, e.g. <code>MYSQL_ROOT_PASSWORD=secret</code>.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: CONTAINER DETAIL (opened from a container row / sidebar tab) -->
+        <section id="tab-container-detail" class="tab-content hidden">
+
+          <!-- Detail Header -->
+          <div class="card glass-card detail-header">
+            <div class="detail-header-info">
+              <div class="detail-title-row">
+                <i data-lucide="box" class="text-cyan"></i>
+                <h2 id="detail-container-name">container</h2>
+                <span class="badge badge-danger" id="detail-status-badge">-</span>
+              </div>
+              <span class="detail-subtitle code-font" id="detail-container-id">-</span>
+            </div>
+            <div class="detail-actions">
+              <button class="btn btn-sm btn-outline" id="detail-btn-start">
+                <i data-lucide="play"></i> Start
+              </button>
+              <button class="btn btn-sm btn-outline" id="detail-btn-stop">
+                <i data-lucide="square"></i> Stop
+              </button>
+              <button class="btn btn-sm btn-outline" id="detail-btn-restart">
+                <i data-lucide="refresh-cw"></i> Restart
+              </button>
+              <button class="btn btn-sm btn-danger-outline" id="detail-btn-delete">
+                <i data-lucide="trash-2"></i> Delete
+              </button>
+            </div>
+          </div>
+
+          <!-- Sub-Tab Bar -->
+          <div class="detail-subtabs">
+            <button class="detail-subtab active" data-subtab="overview">
+              <i data-lucide="info"></i> Overview
+            </button>
+            <button class="detail-subtab" data-subtab="stats">
+              <i data-lucide="activity"></i> Stats
+            </button>
+            <button class="detail-subtab" data-subtab="logs">
+              <i data-lucide="terminal"></i> Logs
+            </button>
+            <button class="detail-subtab" data-subtab="config">
+              <i data-lucide="settings"></i> Config
+            </button>
+            <button class="detail-subtab" data-subtab="processes">
+              <i data-lucide="list-tree"></i> Processes
+            </button>
+            <button class="detail-subtab" data-subtab="exec">
+              <i data-lucide="chevrons-right"></i> Exec
+            </button>
+          </div>
+
+          <!-- Sub-Tab Panes -->
+          <div class="detail-subtab-content">
+
+            <!-- Overview -->
+            <div class="detail-pane" id="subpane-overview">
+              <div class="card glass-card">
+                <div class="card-header">
+                  <h2>Container Overview</h2>
+                  <button class="btn btn-sm btn-outline" id="btn-refresh-overview">
+                    <i data-lucide="rotate-cw"></i> Refresh
+                  </button>
+                </div>
+                <div class="card-body">
+                  <div class="info-grid" id="overview-grid"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="detail-pane hidden" id="subpane-stats">
+              <div class="card glass-card">
+                <div class="card-header">
+                  <h2>Live Resource Usage</h2>
+                  <span class="badge badge-indigo">Live Poll</span>
+                </div>
+                <div class="card-body">
+                  <div class="no-data hidden" id="stats-unavailable">
+                    <i data-lucide="activity"></i>
+                    <p>Container is not running — no live stats available.</p>
+                  </div>
+                  <div id="stats-content">
+                    <div class="stats-chart-grid">
+                      <div class="chart-box">
+                        <h4>CPU Usage (%)</h4>
+                        <canvas id="chart-cpu"></canvas>
+                      </div>
+                      <div class="chart-box">
+                        <h4>Memory Usage (%)</h4>
+                        <canvas id="chart-mem"></canvas>
+                      </div>
+                    </div>
+                    <div class="info-grid" id="stats-numbers"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Logs -->
+            <div class="detail-pane hidden" id="subpane-logs">
+              <div class="card glass-card">
+                <div class="card-header">
+                  <h2>Live Log Stream</h2>
+                  <div class="logs-toolbar">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="toggleAutoScroll" checked>
+                      <span class="slider"></span>
+                      <span class="toggle-label">Auto-scroll</span>
+                    </label>
+                    <button class="btn btn-sm btn-outline" id="btnRefreshLogs" title="Restart log stream">
+                      <i data-lucide="rotate-cw"></i> Restart
+                    </button>
+                    <button class="btn btn-sm btn-outline" id="btnClearLogs" title="Clear screen">
+                      <i data-lucide="eraser"></i> Clear
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body p-0">
+                  <div class="terminal-container detail-terminal">
+                    <div class="terminal-header">
+                      <span class="term-dot term-dot-red"></span>
+                      <span class="term-dot term-dot-yellow"></span>
+                      <span class="term-dot term-dot-green"></span>
+                      <span class="terminal-title">Log Stream</span>
+                    </div>
+                    <div id="terminalOutput" class="terminal-body"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Config -->
+            <div class="detail-pane hidden" id="subpane-config">
+              <div class="card glass-card">
+                <div class="card-header">
+                  <h2>Configuration</h2>
+                </div>
+                <div class="card-body" id="config-content"></div>
+              </div>
+            </div>
+
+            <!-- Processes -->
+            <div class="detail-pane hidden" id="subpane-processes">
+              <div class="card glass-card">
+                <div class="card-header">
+                  <h2>Running Processes</h2>
+                  <button class="btn btn-sm btn-outline" id="btn-refresh-processes">
+                    <i data-lucide="rotate-cw"></i> Refresh
+                  </button>
+                </div>
+                <div class="card-body" id="processes-content"></div>
+              </div>
+            </div>
+
+            <!-- Exec -->
+            <div class="detail-pane hidden" id="subpane-exec">
+              <div class="card glass-card">
+                <div class="card-header">
+                  <h2>Execute Command</h2>
+                </div>
+                <div class="card-body">
+                  <div class="exec-input-row">
+                    <input type="text" id="exec-command-input" placeholder="e.g. ls -la /  —  runs inside the container via sh -c">
+                    <button class="btn btn-primary" id="btn-exec-run">
+                      <i data-lucide="play"></i> Run
+                    </button>
+                  </div>
+                  <p class="exec-hint">
+                    <i data-lucide="info"></i>
+                    Each command runs in a fresh shell — working directory and shell variables do not persist between runs.
+                  </p>
+                  <div class="terminal-container detail-terminal">
+                    <div class="terminal-header">
+                      <span class="term-dot term-dot-red"></span>
+                      <span class="term-dot term-dot-yellow"></span>
+                      <span class="term-dot term-dot-green"></span>
+                      <span class="terminal-title">Command Output</span>
+                    </div>
+                    <div id="exec-output" class="terminal-body"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
